@@ -82,7 +82,12 @@ set_dmc_gov() {
 set_gpu_gov() {
   if [ -e "${GPU_FREQ}/governor" ]
   then
-    for governor in $1 dmc_$1 simple_$1
+    # Never use the memory controller governor (dmc_*) on the GPU: on the
+    # Rockchip BSP kernel it is accepted, but it ignores GPU load.
+    case "$1" in
+      dmc_*) set -- "${1#dmc_}" ;;
+    esac
+    for governor in simple_$1 $1
     do
       echo ${governor} >${GPU_FREQ}/governor 2>/dev/null
       if [ "$?" = 0 ]
