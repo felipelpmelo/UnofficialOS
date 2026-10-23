@@ -47,9 +47,17 @@ fi
 tocon "Starting storage services..."
 systemctl start unofficialos-automount
 
+### Common start scripts the user interface does not need. They run a few
+### seconds after it starts, so they don't delay it (usbgadget takes ~1 s).
+DEFERRED="081-usbgadget 099-networkservices"
+DEFERRED_DELAY="10"
+
 ### Run common start scripts
 for script in /usr/lib/autostart/common/*
 do
+  case " ${DEFERRED} " in
+    *" ${script##*/} "*) continue ;;
+  esac
   log "Run ${script}"
   ${script} 2>&1 >>${BOOTLOG}
 done
@@ -90,6 +98,19 @@ rm /var/lock/start.games 2>&1 >>${BOOTLOG}
 touch /var/lock/start.games 2>&1 >>${BOOTLOG}
 log "Starting ${UI_SERVICE}..."
 systemctl start ${UI_SERVICE} 2>&1 >>${BOOTLOG} &
+
+### Run the deferred start scripts. They stay in this service, like the rest
+### of autostart, so the daemons they start in the background keep running.
+(
+  sleep ${DEFERRED_DELAY}
+  for script in ${DEFERRED}
+  do
+    if [ -f "/usr/lib/autostart/common/${script}" ]
+    then
+      "/usr/lib/autostart/common/${script}" 2>&1 >>${BOOTLOG}
+    fi
+  done
+) &
 
 DEVICE_CPU_GOVERNOR=$(get_setting system.cpugovernor)
 ${DEVICE_CPU_GOVERNOR} 2>&1 >>${BOOTLOG}
