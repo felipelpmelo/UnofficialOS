@@ -305,8 +305,47 @@ clear_screen
 ${VERBOSE} && log $0 "executing game: ${ROMNAME}"
 ${VERBOSE} && log $0 "script to execute: ${RUNTHIS}"
 
+### The settings below are read right before the game starts. get_setting runs
+### up to five awk processes per lookup (~25 ms), so read system.cfg once and
+### answer from memory, in the same order get_setting uses. Only the reads up
+### to the launch use this copy: nothing before it changes those settings.
+declare -A SETTINGS_CACHE
+while IFS= read -r LINE
+do
+  [[ "${LINE}" == *=* ]] || continue
+  KEY="${LINE%%=*}"
+  if [ -z "${SETTINGS_CACHE[${KEY}]+set}" ]
+  then
+    SETTINGS_CACHE[${KEY}]="${LINE#*=}"
+  fi
+done <"${J_CONF}"
+unset LINE KEY
+
+### Sets REPLY to the setting, without starting a subshell.
+function cached_setting() {
+  local VALUE=""
+  local GAME_KEY
+  if [ -n "${3}" ]
+  then
+    GAME_KEY="${2}[\"${3}\"].${1}"
+    VALUE="${SETTINGS_CACHE[${GAME_KEY}]}"
+    [ -n "${VALUE}" ] || VALUE="${SETTINGS_CACHE[${2}.${1}]}"
+  elif [ -n "${2}" ]
+  then
+    VALUE="${SETTINGS_CACHE[${2}.${1}]}"
+  fi
+  [ -n "${VALUE}" ] || VALUE="${SETTINGS_CACHE[system.${1}]}"
+  [ -n "${VALUE}" ] || VALUE="${SETTINGS_CACHE[${1}]}"
+  [ -n "${VALUE}" ] || VALUE="${SETTINGS_CACHE[global.${1}]}"
+  ### get_setting echoes the value unquoted, which squeezes whitespace.
+  local -a WORDS
+  read -r -a WORDS <<<"${VALUE}"
+  REPLY="${WORDS[*]}"
+}
+
 ### Set the cores to use
-CORES=$(get_setting "cores" "${PLATFORM}" "${ROMNAME##*/}")
+cached_setting "cores" "${PLATFORM}" "${ROMNAME##*/}"
+CORES="${REPLY}"
 ${VERBOSE} && log $0 "Configure big.little (${CORES})"
 case ${CORES} in
   little)
@@ -321,14 +360,16 @@ case ${CORES} in
 esac
 
 ### We need the original system cooling profile later so get it now!
-COOLINGPROFILE=$(get_setting cooling.profile)
+cached_setting cooling.profile
+COOLINGPROFILE="${REPLY}"
 
 ### Set CPU TDP and EPP
 CPU_VENDOR=$(cpu_vendor)
 case ${CPU_VENDOR} in
   AuthenticAMD)
     ### Set the overclock mode
-    OVERCLOCK=$(get_setting "overclock" "${PLATFORM}" "${ROMNAME##*/}")
+    cached_setting "overclock" "${PLATFORM}" "${ROMNAME##*/}"
+    OVERCLOCK="${REPLY}"
     if [ ! -z "${OVERCLOCK}" ]
     then
       ${VERBOSE} && log $0 "Set TDP to (${OVERCLOCK})"
@@ -340,7 +381,8 @@ esac
 ### Apply energy performance preference
 if [ -e "/usr/bin/set_epp" ]
 then
-  EPP=$(get_setting "power.epp" "${PLATFORM}" "${ROMNAME##*/}")
+  cached_setting "power.epp" "${PLATFORM}" "${ROMNAME##*/}"
+  EPP="${REPLY}"
   if [ ! -z ${EPP} ]
   then
     ${VERBOSE} && log $0 "Set EPP to (${EPP})"
@@ -349,7 +391,8 @@ then
 fi
 
 ### Configure GPU performance mode
-GPUPERF=$(get_setting "gpuperf" "${PLATFORM}" "${ROMNAME##*/}")
+cached_setting "gpuperf" "${PLATFORM}" "${ROMNAME##*/}"
+GPUPERF="${REPLY}"
 if [ ! -z ${GPUPERF} ]
 then
   ${VERBOSE} && log $0 "Set GPU performance to (${GPUPERF})"
@@ -360,7 +403,8 @@ fi
 if [ "${DEVICE_HAS_FAN}" = "true" ]
 then
   ### Set any custom fan profile (make this better!)
-  GAMEFAN=$(get_setting "cooling.profile" "${PLATFORM}" "${ROMNAME##*/}")
+  cached_setting "cooling.profile" "${PLATFORM}" "${ROMNAME##*/}"
+  GAMEFAN="${REPLY}"
   if [ ! -z "${GAMEFAN}" ]
   then
     ${VERBOSE} && log $0 "Set fan profile to (${GAMEFAN})"
@@ -370,7 +414,8 @@ then
 fi
 
 ### Mesa Panfrost Forcepack if selected.
-FORCEPACK=$(get_setting "forcepack" "${PLATFORM}" "${ROMNAME##*/}")
+cached_setting "forcepack" "${PLATFORM}" "${ROMNAME##*/}"
+FORCEPACK="${REPLY}"
 if [ ! -z "${FORCEPACK}" ] && ([ "${FORCEPACK}" = "1" ] || [ "${FORCEPACK}" = "On" ])
 then
     ${VERBOSE} && log $0 "Enabling panfrost forcepack"
@@ -378,7 +423,8 @@ then
 fi
 
 ### Offline all but the number of threads we need for this game if configured.
-NUMTHREADS=$(get_setting "threads" "${PLATFORM}" "${ROMNAME##*/}")
+cached_setting "threads" "${PLATFORM}" "${ROMNAME##*/}"
+NUMTHREADS="${REPLY}"
 if [ -n "${NUMTHREADS}" ] &&
    [ ! ${NUMTHREADS} = "default" ]
 then
@@ -387,7 +433,8 @@ then
 fi
 
 ### Set the performance mode for emulation
-PERFORMANCE_MODE=$(get_setting "cpugovernor" "${PLATFORM}" "${ROMNAME##*/}")
+cached_setting "cpugovernor" "${PLATFORM}" "${ROMNAME##*/}"
+PERFORMANCE_MODE="${REPLY}"
 ${VERBOSE} && log $0 "Set emulation performance mode to (${PERFORMANCE_MODE})"
 ${PERFORMANCE_MODE}
 
