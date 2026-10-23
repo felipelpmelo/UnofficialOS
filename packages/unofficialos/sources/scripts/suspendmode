@@ -37,10 +37,10 @@ EOF
       del_setting system.suspendmode
       if [ -e "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/030-suspend_mode" ]
       then
-        "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/030-suspend_mode"
+        "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/030-suspend_mode"
       elif [ -e "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/030-suspend_mode" ]
       then
-        "/usr/lib/autostart/quirks/platforms/${HW_DEVICE}/030-suspend_mode"
+        "/usr/lib/autostart/quirks/devices/${QUIRK_DEVICE}/030-suspend_mode"
       fi
     ;;
     *)
