@@ -204,6 +204,53 @@ declare -a LANG_CODES=( ["false"]="0"
 )
 
 ###
+### Settings lookups
+###
+
+### get_setting runs up to five awk processes per lookup (~25 ms) and a launch
+### makes dozens of them. Read system.cfg once and answer from memory, in the
+### same order get_setting uses: game, platform, system., plain key, global.
+### This script never changes system.cfg, so the copy stays current.
+declare -A SETTINGS_CACHE
+while IFS= read -r LINE
+do
+  [[ "${LINE}" == *=* ]] || continue
+  KEY="${LINE%%=*}"
+  if [ -z "${SETTINGS_CACHE[${KEY}]+set}" ]
+  then
+    SETTINGS_CACHE[${KEY}]="${LINE#*=}"
+  fi
+done <"${SYSTEM_CONFIG}"
+unset LINE KEY
+
+### Sets REPLY to the setting, without starting a subshell.
+function cached_setting() {
+  local VALUE=""
+  local GAME_KEY
+  if [ -n "${3}" ]
+  then
+    GAME_KEY="${2}[\"${3}\"].${1}"
+    VALUE="${SETTINGS_CACHE[${GAME_KEY}]}"
+    [ -n "${VALUE}" ] || VALUE="${SETTINGS_CACHE[${2}.${1}]}"
+  elif [ -n "${2}" ]
+  then
+    VALUE="${SETTINGS_CACHE[${2}.${1}]}"
+  fi
+  [ -n "${VALUE}" ] || VALUE="${SETTINGS_CACHE[system.${1}]}"
+  [ -n "${VALUE}" ] || VALUE="${SETTINGS_CACHE[${1}]}"
+  [ -n "${VALUE}" ] || VALUE="${SETTINGS_CACHE[global.${1}]}"
+  ### get_setting echoes the value unquoted, which squeezes whitespace.
+  local -a WORDS
+  read -r -a WORDS <<<"${VALUE}"
+  REPLY="${WORDS[*]}"
+}
+
+function get_setting() {
+  cached_setting "$@"
+  echo "${REPLY}"
+}
+
+###
 ### Fetch common settings
 ###
 
@@ -257,9 +304,9 @@ function cleanup() {
 function game_setting() {
     if [ -n "${1}" ]
     then
-        SETTING=$(get_setting "${1}" "${PLATFORM}" "${ROM}")
-        log "Fetch \"${1}\" \"${PLATFORM}\" \"${ROM}\"] (${SETTING})"
-        echo ${SETTING}
+        cached_setting "${1}" "${PLATFORM}" "${ROM}"
+        log "Fetch \"${1}\" \"${PLATFORM}\" \"${ROM}\"] (${REPLY})"
+        echo ${REPLY}
     fi
 }
 
@@ -283,12 +330,16 @@ function flush_settings() {
 function add_setting() {
     if [ ! "${1}" = "none" ]
     then
-        local OS_SETTING="$(game_setting ${1})"
+        cached_setting "${1}" "${PLATFORM}" "${ROM}"
+        log "Fetch \"${1}\" \"${PLATFORM}\" \"${ROM}\"] (${REPLY})"
+        local OS_SETTING="${REPLY}"
     fi
     local RETROARCH_KEY="${2}"
     local RETROARCH_VALUE="${3}"
-    if [ -z "${RETROARCH_VALUE}" ]& \
-       [ ! "${1}" = "none" ]
+    ### The setting replaces the given value whenever one is named. The old
+    ### test read "[ -z ... ]& [ ! ... ]", which only ran the second part;
+    ### keep that behaviour (analogue relies on it) without the extra fork.
+    if [ ! "${1}" = "none" ]
     then
         RETROARCH_VALUE="${OS_SETTING}"
     fi
