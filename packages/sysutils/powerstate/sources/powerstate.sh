@@ -11,6 +11,7 @@
 . /etc/profile
 
 BATCNT=0
+LED_FULL_SET=0
 unset CURRENT_MODE
 unset AC_STATUS
 ledcontrol $(get_setting led.color)
@@ -68,6 +69,7 @@ do
     esac
     /usr/bin/wifictl setpowersave
     CURRENT_MODE="${AC_STATUS}"
+    LED_FULL_SET=0
   fi
   ### Until we have an overlay. :rofl:
   BATLEFT=$(battery_percent)
@@ -88,13 +90,16 @@ do
         BATCNT=0
       fi
     fi
-  elif (( "${BATLEFT}" > "97" ))
+  elif (( "${BATLEFT}" > "97" )) &&
+       [ "${LED_FULL_SET}" = "0" ]
   then
     if [ "${DEVICE_LED_CHARGING}" = "true" ]
     then
-      # Reset the LED as if the battery was full.
+      # Reset the LED as if the battery was full. Only once per power state:
+      # ledcontrol is a heavy script and may write system.cfg.
       ledcontrol discharging
     fi
+    LED_FULL_SET=1
   fi
   BATCNT=$(( ${BATCNT} + 1 ))
   sleep 2
