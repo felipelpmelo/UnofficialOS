@@ -17,6 +17,18 @@ ROTATION=$(get_setting rotate.root.password)
 if [ "${ROTATION}" == "0" ]
 then
   ROOTPASS=$(get_setting root.password)
+  # setrootpass takes ~1 s (shadow, samba and syncthing). Skip it when the
+  # password in /storage/.cache/shadow already matches and samba and
+  # syncthing were set up by a previous run.
+  CURRENT=$(awk -F: '/^root:/ {print $2}' /storage/.cache/shadow 2>/dev/null)
+  SALT=$(echo "${CURRENT}" | cut -d'$' -f3)
+  if [ -n "${SALT}" ] && \
+     [ "$(cryptpw -m sha512 -S "${SALT}" "${ROOTPASS}" 2>/dev/null)" = "${CURRENT}" ] && \
+     grep -q "^root:" /storage/.cache/samba/smbpasswd 2>/dev/null && \
+     grep -q "<user>root</user>" /storage/.config/syncthing/config.xml 2>/dev/null
+  then
+    exit 0
+  fi
   setrootpass "${ROOTPASS}"
   exit 0
 fi
