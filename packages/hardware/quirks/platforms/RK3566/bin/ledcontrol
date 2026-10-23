@@ -68,34 +68,34 @@ fi
 case ${LEDBRIGHTNESS} in
   max)
     LEDBRIGHTNESS=255
-    set_setting led.brightness max
+    [ "${GETBRIGHTNESS}" = "max" ] || set_setting led.brightness max
   ;;
   mid)
     LEDBRIGHTNESS=63
-    set_setting led.brightness mid
+    [ "${GETBRIGHTNESS}" = "mid" ] || set_setting led.brightness mid
   ;;
   min)
     LEDBRIGHTNESS=15
-    set_setting led.brightness min
+    [ "${GETBRIGHTNESS}" = "min" ] || set_setting led.brightness min
   ;;
 esac
 
 case ${1} in
   green)
     led_green ${LEDBRIGHTNESS}
-    set_setting led.color ${1}
+    [ "${LED_STATUS}" = "${1}" ] || set_setting led.color ${1}
   ;;
   red)
     led_red ${LEDBRIGHTNESS}
-    set_setting led.color ${1}
+    [ "${LED_STATUS}" = "${1}" ] || set_setting led.color ${1}
   ;;
   amber)
     led_amber ${LEDBRIGHTNESS}
-    set_setting led.color ${1}
+    [ "${LED_STATUS}" = "${1}" ] || set_setting led.color ${1}
   ;;
   off)
     led_off
-    set_setting led.color ${1}
+    [ "${LED_STATUS}" = "${1}" ] || set_setting led.color ${1}
   ;;
   discharging)
     if [ -n "${LED_STATUS}" ]

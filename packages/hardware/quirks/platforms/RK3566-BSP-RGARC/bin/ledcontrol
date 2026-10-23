@@ -30,15 +30,15 @@ function led_green() {
 case ${1} in
   green)
     led_green
-    set_setting led.color ${1}
+    [ "${LED_STATUS}" = "${1}" ] || set_setting led.color ${1}
   ;;
   red)
     led_red
-    set_setting led.color ${1}
+    [ "${LED_STATUS}" = "${1}" ] || set_setting led.color ${1}
   ;;
   off)
     led_off
-    set_setting led.color ${1}
+    [ "${LED_STATUS}" = "${1}" ] || set_setting led.color ${1}
   ;;
   discharging)
     if [ -n "${LED_STATUS}" ] 
