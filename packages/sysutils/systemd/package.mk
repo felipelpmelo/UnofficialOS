@@ -152,6 +152,8 @@ post_makeinstall_target() {
 
   # adjust systemd-hwdb-update (we have read-only /etc).
   sed '/^ConditionNeedsUpdate=.*$/d' -i ${INSTALL}/usr/lib/systemd/system/systemd-hwdb-update.service
+  # reuse the hwdb.bin built on a previous boot when nothing changed
+  sed 's#^ExecStart=.*$#ExecStart=/usr/sbin/hwdb-update-cached#' -i ${INSTALL}/usr/lib/systemd/system/systemd-hwdb-update.service
 
   # remove nspawn
   safe_remove ${INSTALL}/usr/bin/systemd-nspawn
@@ -216,6 +218,7 @@ post_makeinstall_target() {
   cp ${PKG_DIR}/scripts/kernel-overlays-setup ${INSTALL}/usr/sbin
   cp ${PKG_DIR}/scripts/network-base-setup ${INSTALL}/usr/sbin
   cp ${PKG_DIR}/scripts/systemd-timesyncd-setup ${INSTALL}/usr/sbin
+  cp ${PKG_DIR}/scripts/hwdb-update-cached ${INSTALL}/usr/sbin
 
   # /etc/resolv.conf and /etc/hosts must be writable
   ln -sf /run/unofficialos/resolv.conf ${INSTALL}/etc/resolv.conf

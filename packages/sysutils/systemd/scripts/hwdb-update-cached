@@ -1,0 +1,22 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+
+# Building /run/hwdb.bin takes ~3 s on slow devices and blocks udev on every
+# boot. Keep a copy in /storage and rebuild it only when the system or the
+# user hwdb files (/storage/.config/hwdb.d) change.
+
+CACHE="/storage/.cache/hwdb"
+KEY="$(cat /etc/os-release /etc/udev/hwdb.d/*.hwdb 2>/dev/null | md5sum | cut -d' ' -f1)"
+
+if [ -s "${CACHE}/hwdb.bin" ] && [ "$(cat ${CACHE}/key 2>/dev/null)" = "${KEY}" ]
+then
+  cp "${CACHE}/hwdb.bin" /run/hwdb.bin.tmp && mv /run/hwdb.bin.tmp /run/hwdb.bin && exit 0
+fi
+
+systemd-hwdb update || exit $?
+
+mkdir -p "${CACHE}"
+cp /run/hwdb.bin "${CACHE}/hwdb.bin.tmp" &&
+  mv "${CACHE}/hwdb.bin.tmp" "${CACHE}/hwdb.bin" &&
+  echo "${KEY}" >"${CACHE}/key"
+exit 0
