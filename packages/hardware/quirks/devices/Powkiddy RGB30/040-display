@@ -4,13 +4,20 @@
 
 . /etc/profile
 
+PANEL=$(drm_tool list | sed -n '/Connector: 133/,$p')
+
 # Configure default contrast saturation and hue values
 for PROPERTY in brightness contrast saturation hue
 do
+  PANELVAL=$(echo "${PANEL}" | awk '/'${PROPERTY}'/ {print $5}')
   MYVAL=$(get_setting display.${PROPERTY})
   if [ -z "${MYVAL}" ]
   then
-    MYVAL=$(drm_tool list | sed -n '/Connector: 133/,$p' | awk '/'${PROPERTY}'/ {print $5}')
+    MYVAL=${PANELVAL}
+  elif [ "${MYVAL}" = "${PANELVAL}" ]
+  then
+    # Already applied. paneladj takes ~135 ms per call.
+    continue
   fi
   paneladj ${PROPERTY} ${MYVAL}
 done
