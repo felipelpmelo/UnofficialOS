@@ -37,16 +37,14 @@ then
   export LOCPATH="${MYLOCPATH}/locale"
   export LANG=${MYLANG}
   export LANGUAGE=${MYLANG}
-  systemctl import-environment LANG
-  systemctl import-environment LOCPATH
-  systemctl import-environment I18NPATH
-  systemctl import-environment LANGUAGE
+  systemctl import-environment LANG LOCPATH I18NPATH LANGUAGE
 fi
 
-### Import quirk variables.
-for VARIABLE in $(cat /etc/profile.d/999-export | grep _ | sed 's/export//g; s/^\W//g; s/\\//g')
-do
-  systemctl import-environment ${VARIABLE}
-done
+### Import quirk variables, in a single call: one call per variable took ~1.5 s.
+VARIABLES=$(cat /etc/profile.d/999-export | grep _ | sed 's/export//g; s/^\W//g; s/\\//g')
+if [ -n "${VARIABLES}" ]
+then
+  systemctl import-environment ${VARIABLES}
+fi
 
 set_kill set "emulationstation"
